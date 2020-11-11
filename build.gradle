@@ -35,6 +35,7 @@ application {
 }
 
 test {
-    // Use TestNG for unit tests
-    useTestNG()
+    useTestNG() {
+        suites 'src/test/resources/suite.xml'
+    }
 }

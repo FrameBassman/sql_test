@@ -1,28 +1,26 @@
 package tech.romashov;
 
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
+import org.testng.ITestContext;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import ru.crystals.testingtools.sql.ConnectionPool;
 import ru.crystals.testingtools.sql.SQLConnection;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
 public class SqlTest {
-    protected ConnectionPool pool;
+    protected SQLConnection sqlConnection;
 
     @BeforeClass
-    public void initConnection() {
-        pool = ConnectionPool.getInstance("172.29.18.193", "set", "5432", "postgres", "postgres", 10);
+    public void initConnection(ITestContext context) {
+        sqlConnection = new SQLConnection("172.29.18.193", "set", "5432", "postgres", "postgres");
     }
 
-    @DataProvider(name = "Рекламные акции через WS", parallel = true)
+    @DataProvider(name = "Рекламные акции через WS", parallel = false)
     public static Object[] advActionsViaWS() {
         return new Object[]{
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
@@ -130,29 +128,35 @@ public class SqlTest {
 
     @Test(description = "Вставка тестовых данных", dataProvider = "Рекламные акции через WS", priority = 1)
     public void insertTest(int index) throws Exception {
-        Assert.assertTrue(waitForAdvActionImported("dummy" + index, 100), "Акция " + "dummy" + index + " не появилась в БД");
+        System.out.println(Thread.currentThread().getId() + ": start test");
+        Assert.assertTrue(waitForAdvActionImported("dummy" + index, sqlConnection, 100), "Акция " + "dummy" + index + " не появилась в БД");
     }
 
-    private boolean waitForAdvActionImported(String campaignName, int timeout) throws SQLException {
-        int currentTime = 0;
-        boolean isImported = false;
-        Connection connection = pool.retrieve();
-        while (currentTime < timeout) {
-            if (getCampaignIdByName(connection, campaignName) != "") {
-                isImported = true;
-                break;
-            }
+    private boolean waitForAdvActionImported(String campaignName, SQLConnection connection, int timeout) throws SQLException {
+        try {
+            int currentTime = 0;
+            boolean isImported = false;
+            System.out.println(Thread.currentThread().getId()+ ": open connection");
+            connection.initConnection();
+            while (currentTime < timeout) {
+                if (getCampaignIdByName(connection.getSql(), campaignName) != "") {
+                    isImported = true;
+                    break;
+                }
 
-            try {
-                TimeUnit.SECONDS.sleep(1);
-            } catch (InterruptedException e) {
-                throw new SQLException("Execution interrupted", e);
-            }
+                try {
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    throw new SQLException("Execution interrupted", e);
+                }
 
-            currentTime++;
+                currentTime++;
+            }
+            return isImported;
+        } finally {
+            System.out.println(Thread.currentThread().getId()+ ": close connection");
+            connection.closeConnection();
         }
-        pool.putback(connection);
-        return isImported;
     }
 
     private String getCampaignIdByName(Connection connection, String campaignName) {

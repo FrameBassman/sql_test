@@ -46,6 +46,7 @@ public class SQLConnection implements AutoCloseable {
      * @throws SQLException
      */
     public ResultSet executeQuery(String query) throws SQLException {
+        System.out.println(Thread.currentThread().getId() + ": init connection");
         initConnection();
         try {
             Statement statement = sql.createStatement();
@@ -53,6 +54,7 @@ public class SQLConnection implements AutoCloseable {
         } catch (SQLException e) {
             throw new SQLException("Выполнение SQL-запроса закончилось неудачей", e);
         } finally {
+            System.out.println(Thread.currentThread().getId() + ": close connection");
             closeConnection();
         }
     }
@@ -74,5 +76,9 @@ public class SQLConnection implements AutoCloseable {
         } finally {
             closeConnection();
         }
+    }
+
+    public Connection getSql() {
+        return sql;
     }
 }
